@@ -119,6 +119,16 @@
     padding:70px 30px;text-align:center;cursor:pointer;transition:.2s;
   }
   .dropzone:hover{border-color:var(--pink);background:#fff;box-shadow:var(--card-shadow);}
+  .dropzone.over{border-color:var(--pink-deep);border-style:solid;background:#fff;
+    box-shadow:0 0 0 6px rgba(240,98,168,.16),var(--card-shadow);transform:scale(1.012);}
+  .dropzone.over .dz-icon{animation:none;transform:scale(1.1);}
+  .dropzone *{pointer-events:none;}
+  .dz-alt{margin-top:14px;text-align:center;}
+  .dz-alt button{background:none;border:0;font-family:inherit;font-size:13.5px;font-weight:700;
+    color:var(--muted);text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:6px 10px;}
+  .dz-alt button:hover{color:var(--pink-deep);}
+  .dz-err{display:none;margin-top:12px;background:#FFF1F4;border:1px solid #F6C6D4;color:#B4265A;
+    border-radius:12px;padding:10px 14px;font-size:13.5px;font-weight:700;text-align:center;}
   .dz-icon{
     width:76px;height:76px;margin:0 auto 18px;border-radius:24px;background:var(--grad);
     display:flex;align-items:center;justify-content:center;font-size:34px;color:#fff;
@@ -532,13 +542,16 @@
 <section class="screen" id="scr-scan">
   <div class="eyebrow">STEP 1 · AI SCAN</div>
   <h1>포카 사진을 올려주세요</h1>
-  <p class="sub">드래그해서 놓거나, 아래 영역을 클릭하면 됩니다. (프로토타입: 클릭하면 샘플 포카가 업로드돼요)</p>
+  <p class="sub">사진을 끌어다 놓거나, 아래 영역을 클릭해 파일을 선택하세요. 올리신 사진이 그대로 분석 화면에 표시됩니다.</p>
 
-  <div class="dropzone" onclick="startAnalyze()">
+  <input type="file" id="dz-input" accept="image/*" style="display:none;">
+  <div class="dropzone" id="dz">
     <div class="dz-icon">📸</div>
     <div class="dz-title">여기에 포카 사진을 드롭하세요</div>
-    <div class="dz-sub">JPG · PNG · HEIC 지원 &nbsp;|&nbsp; 여러 장도 한 번에 가능<br>클릭해서 파일 선택하기</div>
+    <div class="dz-sub">JPG · PNG · WEBP 지원 &nbsp;|&nbsp; 최대 10MB<br>클릭해서 파일 선택하기</div>
   </div>
+  <div class="dz-err" id="dz-err"></div>
+  <div class="dz-alt"><button type="button" onclick="useSample()">사진 없이 샘플 포카로 둘러보기 →</button></div>
 
   <div class="old-vs-new">
     <div class="ovn">
@@ -570,7 +583,7 @@
 
   <div class="analyze-wrap">
     <div class="scan-stage">
-      <div class="poca photo ph-615"><div class="nm">업로드된 사진</div><div class="al">report_615.jpeg</div></div>
+      <div class="poca photo ph-615" id="up-analyzing"><div class="nm">업로드된 사진</div><div class="al" data-fname>report_615.jpeg</div></div>
       <div class="scan-grid"></div>
       <div class="scan-line"></div>
     </div>
@@ -593,7 +606,7 @@
 
   <div class="result-wrap">
     <div>
-      <div class="poca photo ph-615 shine" style="width:100%;"><div class="nm">JUNGKOOK</div><div class="al">실제 제보 #615</div></div>
+      <div class="poca photo ph-615 shine" id="up-result" style="width:100%;"><div class="nm" data-uname>JUNGKOOK</div><div class="al" data-fname>실제 제보 #615</div></div>
       <div class="check-row" style="grid-template-columns:1fr;">
         <div class="checkbox-pill">🔍 중복 없음 — 신규 포카!</div>
         <div class="checkbox-pill">🧪 사진 품질 96점</div>
@@ -1147,7 +1160,96 @@
     document.getElementById('binder-wish').style.display = name==='wish' ? 'block' : 'none';
   }
 
+  /* ===== 포카 사진 업로드: 드래그앤드롭 + 파일선택 ===== */
+  var SAMPLE_BG = '';           // 최초 1회 저장해 두는 기본 샘플 이미지
+  var MAX_MB = 10;
+
+  function dzErr(msg){
+    var e = document.getElementById('dz-err');
+    if(!e) return;
+    if(!msg){ e.style.display='none'; return; }
+    e.textContent = msg; e.style.display='block';
+  }
+
+  // 업로드된 사진을 분석/결과 화면 카드에 반영
+  function applyPhoto(dataUrl, fname){
+    ['up-analyzing','up-result'].forEach(function(id){
+      var el = document.getElementById(id);
+      if(!el) return;
+      if(!SAMPLE_BG) SAMPLE_BG = getComputedStyle(el).backgroundImage;
+      if(dataUrl){
+        el.style.backgroundImage = 'url("'+dataUrl+'")';
+        el.style.backgroundSize = 'cover';
+        el.style.backgroundPosition = 'center';
+      } else {
+        el.style.backgroundImage = '';
+      }
+      var f = el.querySelector('[data-fname]');
+      if(f) f.textContent = dataUrl ? fname : f.getAttribute('data-orig') || f.textContent;
+    });
+  }
+
+  function handleFile(file){
+    dzErr('');
+    if(!file) return;
+    if(!/^image\//.test(file.type)){
+      dzErr('이미지 파일만 올릴 수 있어요. (JPG · PNG · WEBP)'); return;
+    }
+    if(file.size > MAX_MB*1024*1024){
+      dzErr('파일이 너무 큽니다. '+MAX_MB+'MB 이하로 올려주세요. (현재 '+(file.size/1048576).toFixed(1)+'MB)'); return;
+    }
+    var rd = new FileReader();
+    rd.onload = function(ev){
+      applyPhoto(ev.target.result, file.name);
+      startAnalyze();
+    };
+    rd.onerror = function(){ dzErr('사진을 읽지 못했습니다. 다른 파일로 시도해 주세요.'); };
+    rd.readAsDataURL(file);
+  }
+
+  (function initDropzone(){
+    var dz = document.getElementById('dz'), inp = document.getElementById('dz-input');
+    if(!dz || !inp) return;
+
+    // 원래 파일명 보존 (샘플로 되돌릴 때 사용)
+    document.querySelectorAll('[data-fname]').forEach(function(f){
+      f.setAttribute('data-orig', f.textContent);
+    });
+
+    dz.addEventListener('click', function(){ inp.click(); });
+    inp.addEventListener('change', function(){
+      if(inp.files && inp.files[0]) handleFile(inp.files[0]);
+      inp.value = '';   // 같은 파일 다시 선택 가능하게
+    });
+
+    // 브라우저가 파일을 새 탭으로 열어버리지 않도록 문서 전체에서 기본동작 차단
+    ['dragenter','dragover','dragleave','drop'].forEach(function(t){
+      document.addEventListener(t, function(e){ e.preventDefault(); e.stopPropagation(); }, false);
+    });
+
+    var depth = 0;
+    dz.addEventListener('dragenter', function(){ depth++; dz.classList.add('over'); });
+    dz.addEventListener('dragover',  function(e){ if(e.dataTransfer) e.dataTransfer.dropEffect='copy'; dz.classList.add('over'); });
+    dz.addEventListener('dragleave', function(){ depth--; if(depth<=0){ depth=0; dz.classList.remove('over'); } });
+    dz.addEventListener('drop', function(e){
+      depth = 0; dz.classList.remove('over');
+      var dt = e.dataTransfer; if(!dt) return;
+      var file = null;
+      if(dt.files && dt.files.length) file = dt.files[0];
+      else if(dt.items && dt.items.length){
+        for(var i=0;i<dt.items.length;i++){
+          if(dt.items[i].kind==='file'){ file = dt.items[i].getAsFile(); break; }
+        }
+      }
+      if(file) handleFile(file);
+      else dzErr('사진 파일을 찾지 못했습니다. 웹페이지의 이미지는 먼저 저장한 뒤 올려주세요.');
+    });
+  })();
+
+  function useSample(){ applyPhoto(null); startAnalyze(); }
+
   function startAnalyze(){
+    dzErr('');
     go('analyzing');
     var steps = document.querySelectorAll('#steps .step');
     steps.forEach(function(s){ s.classList.remove('doing','done'); s.querySelector('.st').textContent='대기'; });
