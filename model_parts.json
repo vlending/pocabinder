@@ -1,0 +1,1 @@
+{"recognition": {"file": "w600k_r50_int8.onnx", "parts": 6, "bytes": 43788550, "sha256": "4bfb505f4ea13365de2c2447f658394858b2feffb93084754bf780f01550477d"}, "wasm": {"file": "ort-wasm-simd-threaded.wasm", "parts": 2, "bytes": 13479978}}
