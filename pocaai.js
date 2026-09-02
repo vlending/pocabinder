@@ -38,6 +38,12 @@ async function load(opts) {
   var base = opts.baseUrl || './';
   var onProgress = opts.onProgress || function () {};
 
+  // 페이지가 wasm 조각을 조립하는 중이면 끝날 때까지 기다린다
+  if (typeof window !== 'undefined' && window.__ortReady) {
+    onProgress('실행 엔진 준비 중', 0.02);
+    try { await window.__ortReady; } catch (e) {}
+  }
+
   /* 세션 생성 실패 시(대개 멀티스레드/교차출처 문제) 단일 스레드로 한 번 더 시도한다. */
   async function makeSession(src) {
     var opt = { executionProviders: ['wasm'], graphOptimizationLevel: 'all' };

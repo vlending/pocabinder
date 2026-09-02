@@ -482,14 +482,35 @@
 </script>
 <script src="./ort.wasm.min.js"></script>
 <script>
-  if (typeof ort !== 'undefined') {
-    // wasm 경로는 반드시 절대 주소로 준다. 상대경로는 상황에 따라 해석에 실패한다.
-    ort.env.wasm.wasmPaths = new URL('./', document.baseURI).href;
+  /* 실행 엔진 wasm(12.9MB)은 GitHub 업로드 한도를 넘지 않도록 조각으로 나눠 두었다.
+     조각을 받아 이어붙인 뒤 blob 주소로 만들어 ORT 에 직접 건네준다.
+     조각이 없으면 통짜 파일을 쓰도록 자동 폴백한다. */
+  window.__ortReady = (async function () {
+    if (typeof ort === 'undefined') return;
+    var here = new URL('./', document.baseURI).href;
     ort.env.wasm.simd = true;
-    ort.env.wasm.numThreads = 1;     // 단일 스레드 — 교차출처 격리 없이도 항상 동작
+    ort.env.wasm.numThreads = 1;
     ort.env.proxy = false;
     ort.env.logLevel = 'error';
-  }
+    var paths = { mjs: here + 'ort-wasm-simd-threaded.mjs' };
+    try {
+      var info = await (await fetch(here + 'model_parts.json')).json();
+      var spec = info.wasm;
+      if (!spec) throw new Error('조각 정보 없음');
+      var buf = new Uint8Array(spec.bytes), off = 0;
+      for (var i = 0; i < spec.parts; i++) {
+        var r = await fetch(here + spec.file + '.part' + i);
+        if (!r.ok) throw new Error('wasm 조각 ' + i);
+        var ab = await r.arrayBuffer();
+        buf.set(new Uint8Array(ab), off); off += ab.byteLength;
+      }
+      if (off !== spec.bytes) throw new Error('wasm 크기 불일치');
+      paths.wasm = URL.createObjectURL(new Blob([buf], { type: 'application/wasm' }));
+    } catch (e) {
+      paths.wasm = here + 'ort-wasm-simd-threaded.wasm';
+    }
+    ort.env.wasm.wasmPaths = paths;
+  })();
 </script>
 <script src="./pocaai.js"></script>
 </head>
@@ -1293,6 +1314,7 @@
     if(AI.loading) return false;
     AI.loading = true;
     try{
+      if (window.__ortReady) { aiStatus('실행 엔진 준비 중', 0); await window.__ortReady; }
       aiStatus('AI 모델을 처음 한 번만 내려받습니다 — 약 46MB', 0);
       await PocaAI.load({ baseUrl:'./', onProgress:function(m,p){ aiStatus(m, p); } });
       AI.ready = true; aiStatusClear();
