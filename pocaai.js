@@ -3,7 +3,8 @@
    파이썬 engine.py 와 동일한 3단 파이프라인을 웹에서 그대로 재현한다.
      Stage 1  SCRFD(det_10g)  → 얼굴 검출 + 5점 랜드마크
      Stage 2  ArcFace(w600k_r50) → 512차원 임베딩 → 멤버 인덱스 코사인 매칭
-     Stage 3  신뢰도 구간 판정 (자동승인 / 검수 / 반려)
+     Stage 3  판정(routing) (자동승인 / 검수 / 반려)
+   카드 중복 검색은 미구현.
    =================================================================== */
 (function (global) {
 'use strict';
@@ -41,7 +42,7 @@ async function load(opts) {
   // 페이지가 wasm 조각을 조립하는 중이면 끝날 때까지 기다린다
   if (typeof window !== 'undefined' && window.__ortReady) {
     onProgress('실행 엔진 준비 중', 0.02);
-    try { await window.__ortReady; } catch (e) {}
+    await window.__ortReady;
   }
 
   /* 세션 생성 실패 시(대개 멀티스레드/교차출처 문제) 단일 스레드로 한 번 더 시도한다. */
@@ -53,7 +54,6 @@ async function load(opts) {
       try {
         ort.env.wasm.numThreads = 1;
         ort.env.wasm.proxy = false;
-        if (typeof location !== 'undefined') ort.env.wasm.wasmPaths = new URL('./', document.baseURI).href;
         return await ort.InferenceSession.create(src, opt);
       } catch (e2) {
         throw new Error((e1 && e1.message || e1) + ' / 재시도: ' + (e2 && e2.message || e2));
@@ -65,42 +65,66 @@ async function load(opts) {
   state.det = await makeSession(base + 'det_10g_int8.onnx');
 
   /* 인식 모델은 GitHub 웹 업로드 한도(25MB)를 넘지 않도록 조각으로 나뉘어 있다.
-     조각을 순서대로 받아 이어붙인 뒤 메모리에서 바로 세션을 만든다.
-     조각 파일이 없으면 통짜 파일로 자동 폴백한다. */
-  var recBytes = null;
+     조각을 순서대로 받아 이어붙이고 무결성을 확인한 뒤 메모리에서 바로 세션을 만든다. */
+  var recBytes;
   try {
     var pinfo = await fetch(base + 'model_parts.json');
-    if (pinfo.ok) {
-      var pj = await pinfo.json();
-      var spec = pj.recognition;
-      var buf = new Uint8Array(spec.bytes), off = 0;
-      for (var i = 0; i < spec.parts; i++) {
-        onProgress('얼굴 인식 모델 불러오는 중 (' + (i + 1) + '/' + spec.parts + ')',
-                   0.35 + 0.45 * (i / spec.parts));
-        var pr = await fetch(base + spec.file + '.part' + i);
-        if (!pr.ok) throw new Error('조각 ' + i + ' 를 받지 못했습니다');
-        var ab = await pr.arrayBuffer();
-        buf.set(new Uint8Array(ab), off); off += ab.byteLength;
+    if (!pinfo.ok) throw new Error('model_parts.json을 받지 못했습니다 (HTTP ' + pinfo.status + ')');
+    var pj = await pinfo.json();
+    var spec = pj.recognition;
+    if (!spec) throw new Error('인식 모델 명세가 없습니다');
+    if (!spec.sha256) throw new Error('인식 모델 SHA-256 정보가 없습니다');
+    var buf = new Uint8Array(spec.bytes), off = 0;
+    for (var i = 0; i < spec.parts; i++) {
+      onProgress('얼굴 인식 모델 불러오는 중 (' + (i + 1) + '/' + spec.parts + ')',
+                 0.35 + 0.45 * (i / spec.parts));
+      var pr = await fetch(base + spec.file + '.part' + i);
+      if (!pr.ok) throw new Error('조각 ' + i + '을 받지 못했습니다 (HTTP ' + pr.status + ')');
+      var ab = await pr.arrayBuffer();
+      if (off + ab.byteLength > spec.bytes) {
+        throw new Error('모델 조각 크기가 예상 크기를 초과합니다 (현재: ' + off +
+                        ', 조각: ' + ab.byteLength + ', 예상: ' + spec.bytes + ')');
       }
-      if (off !== spec.bytes) throw new Error('모델 크기가 맞지 않습니다 (' + off + '/' + spec.bytes + ')');
-      recBytes = buf;
+      buf.set(new Uint8Array(ab), off); off += ab.byteLength;
     }
+    if (off !== spec.bytes) throw new Error('모델 크기가 맞지 않습니다 (' + off + '/' + spec.bytes + ')');
+
+    if (typeof crypto === 'undefined' || !crypto.subtle || typeof crypto.subtle.digest !== 'function') {
+      console.warn('보안 컨텍스트가 아니어서 인식 모델 SHA-256 검증을 건너뜁니다.');
+    } else {
+      var digest = await crypto.subtle.digest('SHA-256', buf);
+      var actualHash = Array.from(new Uint8Array(digest)).map(function (b) {
+        return b.toString(16).padStart(2, '0');
+      }).join('');
+      if (actualHash.toLowerCase() !== String(spec.sha256).toLowerCase()) {
+        throw new Error('모델 SHA-256이 일치하지 않습니다 (예상: ' + spec.sha256 + ', 실제: ' + actualHash + ')');
+      }
+    }
+    recBytes = buf;
   } catch (e) {
-    recBytes = null;   // 폴백
+    var wrapped = new Error('인식 모델 로드 실패: ' + (e && e.message || e));
+    wrapped.cause = e;
+    throw wrapped;
   }
 
   onProgress('얼굴 인식 모델 준비 중', 0.80);
-  state.rec = await makeSession(recBytes ? recBytes : (base + 'w600k_r50_int8.onnx'));
+  state.rec = await makeSession(recBytes);
 
   onProgress('멤버 데이터베이스 불러오는 중', 0.85);
   var mres = await fetch(base + 'index_meta.json');
+  if (!mres.ok) throw new Error('인덱스 메타데이터 다운로드 실패 (HTTP ' + mres.status + ')');
   var m = await mres.json();
-  state.dim = m.dim; state.owner = m.owner; state.meta = m.meta;
 
   // 인덱스는 int8 로 압축되어 있다 (스케일 하나로 복원). 6천여 명 × 512차원.
   var vres = await fetch(base + 'index_vecs_int8.bin');
+  if (!vres.ok) throw new Error('인덱스 벡터 다운로드 실패 (HTTP ' + vres.status + ')');
   var vbuf = await vres.arrayBuffer();
   var q = new Int8Array(vbuf);
+  var expectedVecLength = m.count * m.dim;
+  if (vbuf.byteLength !== expectedVecLength || q.length !== expectedVecLength) {
+    throw new Error('인덱스 벡터 길이가 맞지 않습니다 (예상: ' + expectedVecLength +
+                    ', 바이트: ' + vbuf.byteLength + ', 원소: ' + q.length + ')');
+  }
   var f = new Float32Array(q.length);
   for (var qi = 0; qi < q.length; qi++) f[qi] = q[qi] * m.scale;
   // 각 벡터를 다시 L2 정규화해 코사인 유사도를 내적으로 계산할 수 있게 한다
@@ -110,6 +134,9 @@ async function load(opts) {
     nrm = Math.sqrt(nrm) || 1;
     for (var k2 = 0; k2 < m.dim; k2++) f[off + k2] /= nrm;
   }
+  state.dim = m.dim;
+  state.owner = m.owner;
+  state.meta = m.meta;
   state.vecs = f;
 
   state.ready = true;
@@ -360,9 +387,9 @@ function assessQuality(img, face) {
 
 /* 코사인 유사도를 사람이 읽는 신뢰도(%)로 환산.
    구간별 선형 매핑이라 유사도 순서는 그대로 보존되며,
-   제품 규칙("90% 이상 자동승인")과 실제 임계값(0.35)이 정확히 일치하도록 맞췄다.
-     ~0.15  →  0%      0.28 →  70%   (반려 경계)
-      0.35  → 90%      0.65 →  99%   (자동승인 경계) */
+   제품 규칙("90% 이상 자동승인")과 실제 임계값이 정확히 일치하도록 맞췄다.
+     ~0.20  →  0%      0.33 →  70%   (반려 경계)
+      0.44  → 90%      0.68 →  99%   (자동승인 경계) */
 function similarityToConfidence(sim) {
   var pts = [[0.20, 0], [CFG.simReview, 70], [CFG.simAuto, 90], [0.68, 99]];
   if (sim <= pts[0][0]) return 0;

@@ -16,6 +16,7 @@ box-shadow:0 14px 40px rgba(200,120,190,.34)}
 .kpi div{background:rgba(255,255,255,.19);border-radius:15px;padding:14px 16px}
 .kpi .k{font-size:11.5px;font-weight:700;opacity:.92}
 .kpi .v{font-size:25px;font-weight:800;margin-top:2px}
+.hero .kpi-note{font-size:11.5px;line-height:1.5;margin-top:9px;opacity:.88}
 h2{font-size:21px;font-weight:800;margin:44px 0 6px}
 h2 span{color:var(--pink)}
 .sub{color:var(--muted);font-size:14.5px;margin-bottom:18px}
@@ -74,13 +75,14 @@ padding:4px 9px;border-radius:7px;background:#FAF6FB}
     <div><div class="k">중복 검출 재현율</div><div class="v">99%</div></div>
     <div><div class="k">장당 처리 시간</div><div class="v">0.9초</div></div>
   </div>
+  <p class="kpi-note">※ 중복 검출 재현율 99%는 평가 중복 쌍 수·TP/FN이 기재되지 않아 재현 자료가 없습니다. 재현 스크립트·샘플 ID 목록은 별도 제공이 필요합니다.</p>
 </div>
 
 <h2>1. <span>3단 AI 파이프라인</span> — 논문 3편의 실제 구현</h2>
 <div class="sub">보내주신 AI TECHNIQUE 01·02·03 문서의 파이프라인을 그대로 구현해 실제 모델로 동작시켰습니다.</div>
 <div class="pipe">
   <div class="st"><div class="no">STAGE 1</div><h3>얼굴 개체 검출</h3>
-    <p>"face" 프롬프트로 사진 속 얼굴을 개체 단위로 찾아 박스와 신뢰도를 반환합니다. 얼굴이 화면을 꽉 채우면
+    <p>사진 속 얼굴을 찾아 박스·5점 랜드마크·신뢰도를 반환합니다. 얼굴이 화면을 꽉 채우면
     캔버스를 단계적으로 확대하며 재검출합니다.</p>
     <div class="mdl">SCRFD det_10g · ONNX</div></div>
   <div class="st"><div class="no">STAGE 2</div><h3>멤버 얼굴 인식</h3>
@@ -96,6 +98,8 @@ padding:4px 9px;border-radius:7px;background:#FAF6FB}
 <h2>2. <span>실제 인식 결과</span> — 제보 사진 70장 분석</h2>
 <div class="sub">평가에 쓴 70장은 인덱스 학습에 전혀 쓰이지 않은 사진입니다(정보 누출 없음).
 정답은 뮤빗 운영 DB의 실제 라벨과 대조했습니다.</div>
+<div class="note">이 평가는 63명 / 138개 벡터 참조 인덱스 기준입니다. 웹 프로토타입은 6,106명 / 6,244개 벡터 인덱스를 사용하며,
+판정 규칙(유사도 0.44 이상 + 격차 0.05 이상 자동승인)도 이 리포트의 라우팅과 다릅니다. 따라서 아래 자동승인 정확도는 프로토타입 엔진의 성능을 보증하지 않습니다.</div>
 <div class="panel">
   <div class="bar">
     <i style="width:27.1%;background:linear-gradient(90deg,#5EE0C2,#38C9A8)"></i>
@@ -337,7 +341,7 @@ padding:4px 9px;border-radius:7px;background:#FAF6FB}
     <div class="kv"><span>ArcFace 유사도 / 격차</span><b>0.9041 / +0.5915</b></div>
     <div class="kv"><span>Stage 3 · 중복 검사</span><b>중복 (top 0.6959)</b></div>
     <div class="kv"><span>품질 점수</span><b>79점 · 선명도 112 · 반사 0.2%</b></div>
-    <div class="kv"><span>라우팅 근거</span><b>동일 카드 유사도 0.6959 ≥ 0.975</b></div>
+    <div class="kv"><span>라우팅 근거</span><b>기하검증 인라이어 비율 0.9181 ≥ 기준</b></div>
     <div class="dup"><b>중복 발견</b> — 기존 제보 #169 (세븐틴 WOOZI)와 동일 카드<br><span>판정 근거: 기하검증 (인라이어 157개 / 비율 0.9181) · 임베딩 0.6959</span></div>
     <div class="cands"><div class="cand hit"><span class="cn">세븐틴 · WOOZI</span><span class="cs">+0.9041</span></div><div class="cand"><span class="cn">세븐틴 · 호시</span><span class="cs">+0.3126</span></div><div class="cand"><span class="cn">세븐틴 · 디노</span><span class="cs">+0.2960</span></div><div class="cand"><span class="cn">방탄소년단 · 슈가</span><span class="cs">+0.2866</span></div><div class="cand"><span class="cn">에이티즈 · 여상(ATEEZ)</span><span class="cs">+0.2656</span></div></div>
   </div></div><div class="case">
