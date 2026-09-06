@@ -31,9 +31,25 @@ var ARCFACE_DST = [
 ];
 
 var state = { det: null, rec: null, vecs: null, dim: 512, owner: null, meta: null, ready: false };
+var loading = null;
 
 /* ---------------------------------------------------------- 모델 로딩 */
 async function load(opts) {
+  if (state.ready) return { members: Object.keys(state.meta).length, vectors: state.owner.length };
+  if (!loading) loading = loadInternal(opts).catch(async function (err) {
+    for (var session of [state.det, state.rec]) {
+      if (session && typeof session.release === 'function') {
+        try { await session.release(); } catch (_) {}
+      }
+    }
+    state.det = null; state.rec = null; state.vecs = null; state.ready = false;
+    loading = null;
+    throw err;
+  });
+  return loading;
+}
+
+async function loadInternal(opts) {
   opts = opts || {};
   var base = opts.baseUrl || './';
   var onProgress = opts.onProgress || function () {};
@@ -53,7 +69,7 @@ async function load(opts) {
       try {
         ort.env.wasm.numThreads = 1;
         ort.env.wasm.proxy = false;
-        if (typeof location !== 'undefined') ort.env.wasm.wasmPaths = new URL('./', document.baseURI).href;
+        // Preserve the assembled WASM blob path: no monolithic WASM file is shipped.
         return await ort.InferenceSession.create(src, opt);
       } catch (e2) {
         throw new Error((e1 && e1.message || e1) + ' / 재시도: ' + (e2 && e2.message || e2));
@@ -64,12 +80,12 @@ async function load(opts) {
   onProgress('얼굴 검출 모델 불러오는 중', 0.05);
   state.det = await makeSession(base + 'det_10g_int8.onnx');
 
-  /* 인식 모델은 GitHub 웹 업로드 한도(25MB)를 넘지 않도록 조각으로 나뉘어 있다.
-     조각을 순서대로 받아 이어붙인 뒤 메모리에서 바로 세션을 만든다.
-     조각 파일이 없으면 통짜 파일로 자동 폴백한다. */
+  /* Download the shipped model parts. Report incomplete downloads without trying
+     a nonexistent monolithic model, so retry preserves the useful error. */
   var recBytes = null;
   try {
     var pinfo = await fetch(base + 'model_parts.json');
+    if (!pinfo.ok) throw new Error('모델 파일 목록을 받지 못했습니다');
     if (pinfo.ok) {
       var pj = await pinfo.json();
       var spec = pj.recognition;
@@ -86,7 +102,7 @@ async function load(opts) {
       recBytes = buf;
     }
   } catch (e) {
-    recBytes = null;   // 폴백
+    throw e;
   }
 
   onProgress('얼굴 인식 모델 준비 중', 0.80);
@@ -94,12 +110,19 @@ async function load(opts) {
 
   onProgress('멤버 데이터베이스 불러오는 중', 0.85);
   var mres = await fetch(base + 'index_meta.json');
+  if (!mres.ok) throw new Error('멤버 데이터베이스를 받지 못했습니다');
   var m = await mres.json();
+  if (m.dim !== 512 || !Number.isInteger(m.count) || m.count < 1 ||
+      !Array.isArray(m.owner) || m.owner.length !== m.count || !m.meta || !Number.isFinite(m.scale) || m.scale <= 0) {
+    throw new Error('멤버 데이터베이스 형식이 올바르지 않습니다');
+  }
   state.dim = m.dim; state.owner = m.owner; state.meta = m.meta;
 
   // 인덱스는 int8 로 압축되어 있다 (스케일 하나로 복원). 6천여 명 × 512차원.
   var vres = await fetch(base + 'index_vecs_int8.bin');
+  if (!vres.ok) throw new Error('멤버 비교 데이터를 받지 못했습니다');
   var vbuf = await vres.arrayBuffer();
+  if (vbuf.byteLength !== m.count * m.dim) throw new Error('멤버 비교 데이터가 완전하지 않습니다');
   var q = new Int8Array(vbuf);
   var f = new Float32Array(q.length);
   for (var qi = 0; qi < q.length; qi++) f[qi] = q[qi] * m.scale;
@@ -358,11 +381,8 @@ function assessQuality(img, face) {
            faceSize: Math.round(faceScore*100), laplacianVar: Math.round(varLap) };
 }
 
-/* 코사인 유사도를 사람이 읽는 신뢰도(%)로 환산.
-   구간별 선형 매핑이라 유사도 순서는 그대로 보존되며,
-   제품 규칙("90% 이상 자동승인")과 실제 임계값(0.35)이 정확히 일치하도록 맞췄다.
-     ~0.15  →  0%      0.28 →  70%   (반려 경계)
-      0.35  → 90%      0.65 →  99%   (자동승인 경계) */
+/* Similarity mapped to a heuristic candidate score, not a calibrated probability.
+   Recognition tiers are internal model output, never publication authorization. */
 function similarityToConfidence(sim) {
   var pts = [[0.20, 0], [CFG.simReview, 70], [CFG.simAuto, 90], [0.68, 99]];
   if (sim <= pts[0][0]) return 0;

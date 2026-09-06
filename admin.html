@@ -474,21 +474,25 @@
 
 
 
+<link rel="stylesheet" href="improvements.css">
+<meta name="description" content="포카 등록 내용을 검토하고 승인·반려·병합 흐름을 확인하는 관리자 체험 화면입니다.">
 </head>
-<body>
+<body class="admin-mode">
+<div id="storage-status" class="prototype-note storage-error" role="alert" hidden></div>
 
 <!-- ======================= TOP BAR ======================= -->
 <div class="topbar">
-  <div class="logo" onclick="go('admin')">
+  <button class="logo" type="button" onclick="go('admin')">
     <div class="logo-badge">✦</div>
     <div class="logo-name">POCABINDER</div>
-    <div class="logo-tag">AI First 프로토타입 v3 · 실제 제보 데이터 615건 반영</div>
-  </div>
-  <div class="mode-toggle">
+    <div class="logo-tag">관리자 체험</div>
+  </button>
+  <div class="mode-toggle"><a href="index.html">첫 화면</a><a href="app.html">이용자 화면</a>
     <button id="mt-admin" class="on" onclick="go('admin')">🛡️ 관리자 CMS</button>
   </div>
 </div>
 
+<p class="prototype-note">관리자 체험 · 예시 데이터와 이 브라우저의 등록 내용만 다룹니다. 로그인·권한 관리·운영 서버 연동이 없는 공개 프로토타입입니다.</p>
 <!-- ======================= 1. HOME ======================= -->
 <!-- ======================= 2. AI SCAN ======================= -->
 <!-- ======================= 3. ANALYZING ======================= -->
@@ -496,150 +500,12 @@
 <!-- ======================= 5. COMPLETE ======================= -->
 <!-- ======================= 6. ADMIN QUEUE ======================= -->
 <section class="screen active" id="scr-admin">
-  <div class="eyebrow">ADMIN · AI 검수 CMS</div>
-  <h1>AI 검수 대기열</h1>
-  <p class="sub">실제 검수 대기 <b>612건</b> 기준, AI 분류 시뮬레이션입니다. 관리자는 <b>검수 필요</b> 그룹만 집중해서 보면 됩니다.</p>
-
-  <div class="admin-stats">
-    <div class="stat"><div class="k">전체 대기 (실데이터)</div><div class="v" id="stat-pending">612</div></div>
-    <div class="stat"><div class="k">자동 승인 예상 (90%↑)</div><div class="v mt">465</div></div>
-    <div class="stat"><div class="k">검수 필요 예상 (70~89%)</div><div class="v" style="color:#DD8B24;">98</div></div>
-    <div class="stat"><div class="k">자동 반려 예상 (70%↓)</div><div class="v" style="color:#E25A72;">49</div></div>
-  </div>
-
-  <!-- 자동 승인 -->
-  <div class="queue-section">
-    <div class="queue-head"><span class="badge auto">AUTO APPROVE</span><h3>자동 승인 라인</h3><span class="cnt">관리자 개입 불필요 · 샘플 3건</span></div>
-    <div class="qgrid" id="q-auto">
-      <div class="qcard justnow" id="myCard" style="display:none;" onclick="openDetail('mine')">
-        <div class="newtag">방금 제출됨 ✨</div>
-        <div class="qrow">
-          <div class="poca photo ph-615"></div>
-          <div class="qmeta"><div class="a">방탄소년단 · #615</div><div class="m">정국</div><div class="al2">GOLDEN · 앨범포카</div>
-            <div class="qconf qc-auto"><div class="bar"><i style="width:98%"></i></div><span class="pc">AI 98%</span></div>
-            <div class="qconf qc-auto"><div class="bar"><i style="width:2%"></i></div><span class="pc" style="color:var(--muted);">중복 2%</span></div>
-          </div>
-        </div>
-        <div class="qactions"><button class="btn btn-detail" onclick="event.stopPropagation();openDetail('mine')">상세</button><button class="btn btn-approve" onclick="event.stopPropagation();resolveCard(this,'승인 완료! 컬렉션에 등록됐어요 💗')">승인</button></div>
-      </div>
-      <div class="qcard" onclick="openDetail('a1')">
-        <div class="qrow">
-          <div class="poca photo ph-614"></div>
-          <div class="qmeta"><div class="a">방탄소년단 · #614</div><div class="m">V</div><div class="al2">Layover · 앨범포카</div>
-            <div class="qconf qc-auto"><div class="bar"><i style="width:97%"></i></div><span class="pc">AI 97%</span></div>
-            <div class="qconf qc-auto"><div class="bar"><i style="width:1%"></i></div><span class="pc" style="color:var(--muted);">중복 1%</span></div>
-          </div>
-        </div>
-        <div class="qactions"><button class="btn btn-detail" onclick="event.stopPropagation();openDetail('a1')">상세</button><button class="btn btn-approve" onclick="event.stopPropagation();resolveCard(this,'승인 완료! 컬렉션에 등록됐어요 💗')">승인</button></div>
-      </div>
-      <div class="qcard" onclick="openDetail('a2')">
-        <div class="qrow">
-          <div class="poca photo ph-591"></div>
-          <div class="qmeta"><div class="a">스트레이 키즈 · #591</div><div class="m">방찬</div><div class="al2">樂-STAR · 앨범포카</div>
-            <div class="qconf qc-auto"><div class="bar"><i style="width:95%"></i></div><span class="pc">AI 95%</span></div>
-            <div class="qconf qc-auto"><div class="bar"><i style="width:3%"></i></div><span class="pc" style="color:var(--muted);">중복 3%</span></div>
-          </div>
-        </div>
-        <div class="qactions"><button class="btn btn-detail" onclick="event.stopPropagation();openDetail('a2')">상세</button><button class="btn btn-approve" onclick="event.stopPropagation();resolveCard(this,'승인 완료! 컬렉션에 등록됐어요 💗')">승인</button></div>
-      </div>
-      <div class="qcard" onclick="openDetail('a3')">
-        <div class="qrow">
-          <div class="poca photo ph-606"></div>
-          <div class="qmeta"><div class="a">투모로우바이투게더 · #606</div><div class="m">수빈</div><div class="al2">minisode 3 · 앨범포카</div>
-            <div class="qconf qc-auto"><div class="bar"><i style="width:94%"></i></div><span class="pc">AI 94%</span></div>
-            <div class="qconf qc-auto"><div class="bar"><i style="width:2%"></i></div><span class="pc" style="color:var(--muted);">중복 2%</span></div>
-          </div>
-        </div>
-        <div class="qactions"><button class="btn btn-detail" onclick="event.stopPropagation();openDetail('a3')">상세</button><button class="btn btn-approve" onclick="event.stopPropagation();resolveCard(this,'승인 완료! 컬렉션에 등록됐어요 💗')">승인</button></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 검수 필요 -->
-  <div class="queue-section">
-    <div class="queue-head"><span class="badge review">NEED REVIEW</span><h3>검수 필요</h3><span class="cnt">관리자가 직접 판단 · 샘플 2건</span></div>
-    <div class="qgrid">
-      <div class="qcard" onclick="openDetail('r1')">
-        <div class="qrow">
-          <div class="poca photo ph-267"></div>
-          <div class="qmeta"><div class="a">aespa · #267</div><div class="m">윈터 <span style="font-size:11px;color:#DD8B24;">(추정)</span></div><div class="al2">버전 불확실 · 중복 의심</div>
-            <div class="qconf qc-review"><div class="bar"><i style="width:65%"></i></div><span class="pc">AI 65%</span></div>
-            <div class="qconf qc-review"><div class="bar"><i style="width:41%"></i></div><span class="pc" style="color:var(--muted);">중복 41%</span></div>
-          </div>
-        </div>
-        <div class="qactions"><button class="btn btn-detail" onclick="event.stopPropagation();openDetail('r1')">상세 검수</button><button class="btn btn-approve" onclick="event.stopPropagation();resolveCard(this,'검토 후 승인했어요 ✔')">승인</button><button class="btn btn-reject" onclick="event.stopPropagation();resolveCard(this,'반려 처리했어요')">반려</button></div>
-      </div>
-      <div class="qcard" onclick="openDetail('r2')">
-        <div class="qrow">
-          <div class="poca photo ph-609"></div>
-          <div class="qmeta"><div class="a">세븐틴 · #609</div><div class="m">호시</div><div class="al2">유형 애매 (앨범포카 vs MD)</div>
-            <div class="qconf qc-review"><div class="bar"><i style="width:78%"></i></div><span class="pc">AI 78%</span></div>
-            <div class="qconf qc-review"><div class="bar"><i style="width:12%"></i></div><span class="pc" style="color:var(--muted);">중복 12%</span></div>
-          </div>
-        </div>
-        <div class="qactions"><button class="btn btn-detail" onclick="event.stopPropagation();openDetail('r2')">상세 검수</button><button class="btn btn-approve" onclick="event.stopPropagation();resolveCard(this,'검토 후 승인했어요 ✔')">승인</button><button class="btn btn-reject" onclick="event.stopPropagation();resolveCard(this,'반려 처리했어요')">반려</button></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 자동 반려 -->
-  <div class="queue-section">
-    <div class="queue-head"><span class="badge reject">AUTO REJECT</span><h3>자동 반려 라인</h3><span class="cnt">저품질 · 중복 의심 · 샘플 1건</span></div>
-    <div class="qgrid">
-      <div class="qcard" onclick="openDetail('j1')" style="opacity:.85;">
-        <div class="qrow">
-          <div class="poca photo ph-7"><div class="al">저해상도</div></div>
-          <div class="qmeta"><div class="a">제보 #7</div><div class="m">품질 미달</div><div class="al2">저해상도 · 식별 불가</div>
-            <div class="qconf qc-reject"><div class="bar"><i style="width:24%"></i></div><span class="pc">AI 24%</span></div>
-            <div class="qconf qc-reject"><div class="bar"><i style="width:8%"></i></div><span class="pc" style="color:var(--muted);">품질 31점</span></div>
-          </div>
-        </div>
-        <div class="qactions"><button class="btn btn-detail" onclick="event.stopPropagation();openDetail('j1')">상세</button><button class="btn btn-reject" onclick="event.stopPropagation();resolveCard(this,'반려 확정 — 제보자에게 재촬영 안내 발송')">반려 확정</button></div>
-      </div>
-    </div>
-  </div>
+<h1>포카 검수 대기열</h1><p class="sub">멤버 후보와 카드 정보를 확인하고 처리해 주세요. 모든 카드는 직접 검수합니다.</p><div id="queue-summary"></div><div class="search-form"><input type="search" id="queue-search" aria-label="검수 카드 검색" placeholder="아티스트, 멤버, 앨범 검색"><select id="queue-filter" aria-label="처리 상태"><option value="pending">검수 대기</option><option value="approved">승인</option><option value="rejected">반려</option><option value="merged">병합</option><option value="all">전체</option></select></div><p class="result-count" id="queue-count" role="status"></p><div class="qgrid" id="queue-cards"></div>
 </section>
 
 <!-- ======================= 7. CMS DETAIL ======================= -->
 <section class="screen" id="scr-detail">
-  <div class="backlink" onclick="go('admin')">← 검수 대기열로 돌아가기</div>
-  <div class="eyebrow">ADMIN · 카드 상세 검수</div>
-  <h1 id="dt-title">정한 · 17 IS RIGHT HERE</h1>
-
-  <div class="detail-wrap">
-    <div>
-      <div class="poca shine" id="dt-poca" style="width:100%;"><div class="face" id="dt-face">🐰</div><div class="nm" id="dt-nm">JEONGHAN</div><div class="al" id="dt-al">17 IS RIGHT HERE</div></div>
-      <div class="check-row" style="grid-template-columns:1fr;">
-        <div class="checkbox-pill" id="dt-quality">🧪 사진 품질 96점</div>
-      </div>
-    </div>
-    <div>
-      <div class="panel">
-        <div style="font-size:13px;font-weight:800;color:var(--muted);margin-bottom:6px;">AI 분석 결과</div>
-        <div class="kv"><span class="k">아티스트</span><span class="v" id="dt-artist">SEVENTEEN</span></div>
-        <div class="kv"><span class="k">멤버</span><span class="v" id="dt-member">정한 (JEONGHAN)</span></div>
-        <div class="kv"><span class="k">앨범</span><span class="v" id="dt-album">17 IS RIGHT HERE</span></div>
-        <div class="kv"><span class="k">유형</span><span class="v" id="dt-type">럭키드로우</span></div>
-        <div class="kv"><span class="k">AI 신뢰도</span><span class="v" id="dt-conf" style="color:var(--pink-deep);">98%</span></div>
-        <div class="kv"><span class="k">중복 확률</span><span class="v" id="dt-dup">2%</span></div>
-      </div>
-
-      <div class="dup-box" id="dupbox" style="display:none;">
-        <div class="t">⚠️ 유사한 기존 포카 발견 — Merge 검토</div>
-        <div class="dup-row">
-          <div class="poca photo ph-267"></div>
-          <div class="info"><b>aespa 윈터 · 앨범포카 (기존 등록)</b><br>유사도 41% · 버전만 다를 가능성 있음<br>같은 포카면 <b>Merge</b>, 다른 버전이면 <b>Approve</b></div>
-        </div>
-      </div>
-
-      <div class="decision">
-        <button class="btn btn-approve-lg" onclick="decide('✔ 승인 완료 — 컬렉션 DB에 등록됐어요')">✔ Approve</button>
-        <button class="btn btn-merge-lg" onclick="decide('기존 포카와 병합(Merge)했어요')">⇄ Merge</button>
-        <button class="btn btn-reject-lg" onclick="decide('반려 처리했어요 — 제보자에게 사유 발송')">✕ Reject</button>
-      </div>
-      <p class="sub" style="font-size:13px;">Approve = 신규 등록 · Merge = 기존 포카와 통합 · Reject = 반려 + 제보자 알림</p>
-    </div>
-  </div>
+<h1>카드 상세 검수</h1>
 </section>
 
 <!-- ======================= 8. SEARCH ======================= -->
@@ -649,225 +515,16 @@
 <!-- ======================= 12. MY BINDER ======================= -->
 <!-- ======================= 13. ADMIN DASHBOARD ======================= -->
 <section class="screen" id="scr-dashboard">
-  <div class="eyebrow">ADMIN · ANALYTICS · 실제 뮤빗 데이터 (2026.07.30)</div>
-  <h1>운영 대시보드</h1>
-  <p class="sub">누적 제보 615건 중 <b style="color:#E25A72;">612건(99.5%)이 검수 대기</b> — 수동 검수 병목이 실데이터로 확인됩니다.</p>
-
-  <div class="admin-stats">
-    <div class="stat"><div class="k">누적 제보</div><div class="v pk">615</div></div>
-    <div class="stat"><div class="k">검수 대기</div><div class="v" style="color:#E25A72;">612</div></div>
-    <div class="stat"><div class="k">승인 완료</div><div class="v mt">2</div></div>
-    <div class="stat"><div class="k">참여 유저</div><div class="v lv">414</div></div>
-  </div>
-
-  <div class="dash-grid">
-    <div class="chart-panel">
-      <div class="ct2">유형별 제보 분포 (실데이터)</div>
-      <div class="cs">전체 615건 · 단위: 장</div>
-      <div class="week-chart" style="grid-template-columns:repeat(5,1fr);">
-        <div class="wbar today"><span class="num">451</span><div class="col" style="height:100%"></div><span class="day">앨범</span></div>
-        <div class="wbar"><span class="num">53</span><div class="col" style="height:14%"></div><span class="day">MD</span></div>
-        <div class="wbar"><span class="num">43</span><div class="col" style="height:12%"></div><span class="day">팬미팅</span></div>
-        <div class="wbar"><span class="num">34</span><div class="col" style="height:10%"></div><span class="day">시즌그리팅</span></div>
-        <div class="wbar"><span class="num">34</span><div class="col" style="height:10%"></div><span class="day">팬사인회</span></div>
-      </div>
-    </div>
-    <div class="chart-panel">
-      <div class="ct2">아티스트별 제보 분포 (실데이터)</div>
-      <div class="cs">전체 615건 기준</div>
-      <div class="stackbar">
-        <i style="width:34%;background:linear-gradient(90deg,#FF8BC2,#F062A8);"></i>
-        <i style="width:26%;background:linear-gradient(90deg,#B79CFF,#8B6CF0);"></i>
-        <i style="width:15%;background:linear-gradient(90deg,#8CC8FF,#5AA7F0);"></i>
-        <i style="width:10%;background:linear-gradient(90deg,#5EE0C2,#38C9A8);"></i>
-        <i style="width:15%;background:linear-gradient(90deg,#FFCE7A,#FFAA4D);"></i>
-      </div>
-      <div class="legend">
-        <div class="lg"><span class="sw" style="background:#F062A8;"></span>방탄소년단<b>208장 · 34%</b></div>
-        <div class="lg"><span class="sw" style="background:#8B6CF0;"></span>스트레이 키즈<b>159장 · 26%</b></div>
-        <div class="lg"><span class="sw" style="background:#5AA7F0;"></span>투모로우바이투게더<b>90장 · 15%</b></div>
-        <div class="lg"><span class="sw" style="background:#38C9A8;"></span>세븐틴<b>63장 · 10%</b></div>
-        <div class="lg"><span class="sw" style="background:#FFAA4D;"></span>에이티즈·aespa 외<b>95장 · 15%</b></div>
-      </div>
-      <div class="queue-link" onclick="go('admin')">
-        <span>⏳ 검수 대기 <span class="n">612건</span> 처리하러 가기</span><span>→</span>
-      </div>
-    </div>
-  </div>
-
-  <div class="chart-panel" style="margin-top:16px;">
-    <div class="ct2">AI 도입 효과 (기획 근거)</div>
-    <div class="cs">기존 수동 검수 대비</div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">
-      <div class="ist" style="background:#F8F2FA;"><div class="k">제보 1건당 처리 시간</div><div class="v" style="color:#8B6CF0;">4분 → 12초</div></div>
-      <div class="ist" style="background:#F8F2FA;"><div class="k">일일 처리 가능량</div><div class="v" style="color:#8B6CF0;">120건 → 3,000건+</div></div>
-      <div class="ist" style="background:#F8F2FA;"><div class="k">중복 등록률</div><div class="v" style="color:#8B6CF0;">7.2% → 0.4%</div></div>
-    </div>
-  </div>
+<h1>운영 체험 대시보드</h1>
 </section>
 
 <!-- ======================= PROTO NAV ======================= -->
-<div class="proto-nav">
-  <button data-nav="dashboard" onclick="go('dashboard')">대시보드</button>
-  <button data-nav="admin" onclick="go('admin')">검수 CMS</button>
-  <button data-nav="detail" onclick="openDetail('mine')">검수 상세</button></div>
+<nav class="proto-nav" aria-label="관리자 메뉴"><button data-nav="admin" onclick="go('admin')">검수 대기열</button><button data-nav="dashboard" onclick="go('dashboard')">대시보드·이력</button></nav>
 
-<div class="toast" id="toast"></div>
-
-<script>
-  var analyzeTimers = [];
-  var submitted = false;
-
-  function go(name){
-    document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});
-    var scr = document.getElementById('scr-'+name);
-    if(scr) scr.classList.add('active');
-    // clear pending analyze timers if leaving
-    if(name !== 'analyzing'){ analyzeTimers.forEach(clearTimeout); analyzeTimers = []; }
-    // admin mode styling
-    var isAdmin = (name==='admin'||name==='detail'||name==='dashboard');
-    document.body.classList.toggle('admin-mode', isAdmin);
-    var _mu=document.getElementById('mt-user'), _ma=document.getElementById('mt-admin');
-    if(_mu) _mu.classList.toggle('on', !isAdmin);
-    if(_ma) _ma.classList.toggle('on', isAdmin);
-    // proto nav highlight
-    document.querySelectorAll('.proto-nav button').forEach(function(b){
-      b.classList.toggle('on', b.getAttribute('data-nav')===name);
-    });
-    // show my submitted card in admin queue
-    if(name==='admin' && submitted){
-      var _mc=document.getElementById('myCard');
-      if(_mc) _mc.style.display='block';
-    }
-    if(name==='result'){ animateBars(); }
-    if(name==='artist'){
-      var ab = document.getElementById('artist-bar');
-      if(!ab) { window.scrollTo({top:0}); return; }
-      ab.style.width='0';
-      setTimeout(function(){ ab.style.width = ab.getAttribute('data-w')+'%'; }, 80);
-    }
-    window.scrollTo({top:0});
-  }
-
-  /* ---------- album filter ---------- */
-
-  /* ---------- card detail toggles ---------- */
-  function toggleOwn(){
-    var b = document.getElementById('tglOwn');
-    var on = b.classList.toggle('on-own');
-    b.textContent = on ? '✔ 보유중' : '보유 체크';
-    showToast(on ? '보유 목록에 추가했어요 ✔' : '보유 해제했어요');
-  }
-  function toggleWish(){
-    var b = document.getElementById('tglWish');
-    var on = b.classList.toggle('on-wish');
-    b.textContent = on ? '💗 위시 담김' : '♡ 위시';
-    showToast(on ? '위시리스트에 담았어요 💗' : '위시에서 뺐어요');
-  }
-
-  /* ---------- binder tabs ---------- */
-  function binderTab(name, btn){
-    document.querySelectorAll('.binder-tabs button').forEach(function(b){b.classList.remove('on');});
-    btn.classList.add('on');
-    document.getElementById('binder-all').style.display = name==='all' ? 'block' : 'none';
-    document.getElementById('binder-wish').style.display = name==='wish' ? 'block' : 'none';
-  }
-
-  /* ===== 포카 사진 업로드: 드래그앤드롭 + 파일선택 ===== */
-  var SAMPLE_BG = '';           // 최초 1회 저장해 두는 기본 샘플 이미지
-  var MAX_MB = 10;
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 
-  // 업로드된 사진을 분석/결과 화면 카드에 반영
-
-
-
-  /* ============ 실제 AI 엔진 연동 ============ */
-  var AI = { ready:false, loading:false, lastResult:null, enabled:(typeof PocaAI!=='undefined') };
-
-
-
-
-  // 실제 인식 결과를 결과 화면에 반영
-
-  // 샘플 포카는 고정 결과, 업로드 사진은 실제 인식
-  var SAMPLE_FIELDS=null;
-
-
-  // 실제 추론을 돌리면서 분석 화면의 단계 표시를 진짜 진행상황에 맞춘다
-
-
-
-  var editing = false;
-
-
-  function resolveCard(btn, msg){
-    var card = btn.closest('.qcard');
-    card.style.transition='.35s';
-    card.style.opacity='0'; card.style.transform='scale(.92)';
-    setTimeout(function(){ card.style.display='none'; }, 350);
-    var pending = document.getElementById('stat-pending');
-    pending.textContent = Math.max(0, parseInt(pending.textContent.replace(/,/g,''))-1);
-    showToast(msg);
-  }
-
-  var DETAILS = {
-    mine:{title:'정국 · GOLDEN (제보 #615)', face:'', nm:'JUNGKOOK', al:'실제 제보 #615', cls:'photo ph-615',
-      artist:'방탄소년단 (BTS)', member:'정국 (JUNGKOOK)', album:'GOLDEN', type:'앨범포카',
-      conf:'98%', dup:'2%', quality:'🧪 사진 품질 96점', dupshow:false},
-    a1:{title:'V · Layover (제보 #614)', face:'', nm:'V', al:'실제 제보 #614', cls:'photo ph-614',
-      artist:'방탄소년단 (BTS)', member:'V (뷔)', album:'Layover', type:'앨범포카',
-      conf:'97%', dup:'1%', quality:'🧪 사진 품질 94점', dupshow:false},
-    a2:{title:'방찬 · 樂-STAR (제보 #591)', face:'', nm:'BANG CHAN', al:'실제 제보 #591', cls:'photo ph-591',
-      artist:'스트레이 키즈', member:'방찬 (BANG CHAN)', album:'樂-STAR', type:'앨범포카',
-      conf:'95%', dup:'3%', quality:'🧪 사진 품질 92점', dupshow:false},
-    a3:{title:'수빈 · minisode 3 (제보 #606)', face:'', nm:'SOOBIN', al:'실제 제보 #606', cls:'photo ph-606',
-      artist:'투모로우바이투게더', member:'수빈 (SOOBIN)', album:'minisode 3', type:'앨범포카',
-      conf:'94%', dup:'2%', quality:'🧪 사진 품질 95점', dupshow:false},
-    r1:{title:'윈터 (추정) · 제보 #267 — 검수 필요', face:'', nm:'WINTER?', al:'실제 제보 #267', cls:'photo ph-267',
-      artist:'aespa', member:'윈터 (추정 65%)', album:'버전 불확실', type:'앨범포카 추정',
-      conf:'65%', dup:'41%', quality:'🧪 사진 품질 88점', dupshow:true},
-    r2:{title:'호시 · 제보 #609 — 검수 필요', face:'', nm:'HOSHI', al:'실제 제보 #609', cls:'photo ph-609',
-      artist:'세븐틴', member:'호시 (HOSHI)', album:'미분류', type:'앨범포카 vs MD 애매',
-      conf:'78%', dup:'12%', quality:'🧪 사진 품질 91점', dupshow:false},
-    j1:{title:'품질 미달 — 자동 반려 (제보 #7)', face:'', nm:'?', al:'실제 제보 #7', cls:'photo ph-7',
-      artist:'인식 실패', member:'—', album:'—', type:'—',
-      conf:'24%', dup:'8%', quality:'⚠️ 사진 품질 31점 (저해상도)', dupshow:false}
-  };
-
-  function openDetail(id){
-    var d = DETAILS[id] || DETAILS.mine;
-    document.getElementById('dt-title').textContent = d.title;
-    var poca = document.getElementById('dt-poca');
-    poca.className = 'poca shine ' + d.cls;
-    if(!d.cls){ poca.style.background='linear-gradient(160deg,#C9C2CE,#A79FB0)'; } else { poca.style.background=''; }
-    document.getElementById('dt-face').textContent = d.face;
-    document.getElementById('dt-nm').textContent = d.nm;
-    document.getElementById('dt-al').textContent = d.al;
-    document.getElementById('dt-artist').textContent = d.artist;
-    document.getElementById('dt-member').textContent = d.member;
-    document.getElementById('dt-album').textContent = d.album;
-    document.getElementById('dt-type').textContent = d.type;
-    document.getElementById('dt-conf').textContent = d.conf;
-    document.getElementById('dt-dup').textContent = d.dup;
-    document.getElementById('dt-quality').textContent = d.quality;
-    document.getElementById('dupbox').style.display = d.dupshow ? 'block' : 'none';
-    go('detail');
-  }
-
-  function decide(msg){
-    showToast(msg);
-    setTimeout(function(){ go('admin'); }, 800);
-  }
-
-  var toastTimer;
-  function showToast(msg){
-    var t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 2200);
-  }
-</script>
+<script src="./poca-data.js"></script>
+<script src="./admin-runtime.js"></script>
 </body>
 </html>
