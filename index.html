@@ -11,10 +11,11 @@ box-shadow:0 16px 44px rgba(200,120,190,.34)}
 .tag{font-size:12px;font-weight:800;letter-spacing:.12em;opacity:.92}
 h1{font-size:32px;font-weight:800;margin-top:9px;line-height:1.28}
 .hero p{font-size:15.5px;opacity:.96;margin-top:13px;line-height:1.65}
-.kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:24px}
+.kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:24px}
 .kpi div{background:rgba(255,255,255,.19);border-radius:14px;padding:13px 15px}
 .kpi .k{font-size:11px;font-weight:700;opacity:.92}
 .kpi .v{font-size:23px;font-weight:800;margin-top:2px}
+.hero .kpi-note{font-size:11.5px;line-height:1.5;margin-top:9px;opacity:.88}
 .cards{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px}
 a.card{display:block;background:#fff;border:1px solid #F3E6F0;border-radius:22px;padding:26px 28px;
 text-decoration:none;color:inherit;box-shadow:0 10px 30px rgba(190,140,200,.15);transition:.18s}
@@ -25,7 +26,7 @@ a.card h2{font-size:18px;font-weight:800;margin:14px 0 7px}
 a.card p{font-size:13.8px;color:#7A6884;line-height:1.6}
 a.card .go{margin-top:14px;font-size:13px;font-weight:800;color:#F062A8}
 .foot{text-align:center;color:#9C8AA6;font-size:12.5px;margin-top:26px}
-@media(max-width:700px){.cards,.kpi{grid-template-columns:1fr 1fr}h1{font-size:26px}}
+@media(max-width:700px){.cards{grid-template-columns:1fr 1fr}.kpi{grid-template-columns:1fr}h1{font-size:26px}}
 </style></head><body><div class="w">
 <div class="hero">
   <div class="tag">POCABINDER · AI FIRST</div>
@@ -34,10 +35,10 @@ a.card .go{margin-top:14px;font-size:13px;font-weight:800;color:#F062A8}
   프로토타입과 실제 AI 검증 결과를 함께 보실 수 있습니다.</p>
   <div class="kpi">
     <div><div class="k">멤버 식별 정확도</div><div class="v">90.6%</div></div>
-    <div><div class="k">자동승인 정확도</div><div class="v">100%</div></div>
-    <div><div class="k">중복 검출 재현율</div><div class="v">99%</div></div>
-    <div><div class="k">처리 시간</div><div class="v">0.4초</div></div>
+    <div><div class="k">자동승인 정확도</div><div class="v">22/22</div></div>
+    <div><div class="k">처리 시간</div><div class="v">0.9초</div></div>
   </div>
+  <p class="kpi-note">※ 63명 참조 인덱스, 제보 70장 평가 기준. 배포 데모 인덱스(6,106명)와 다름</p>
 </div>
 <div class="cards">
   <a class="card" href="prototype.html">

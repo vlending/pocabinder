@@ -474,43 +474,86 @@
   /* 이전 버전이 등록해 둔 서비스워커(coi.js)를 해제한다.
      교차출처 격리로 속도를 올리려던 것인데, 그 부작용으로 ORT 가 wasm 모듈
      경로를 해석하지 못해 로딩이 실패했다. 속도보다 안정성을 택한다. */
-  if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
-    navigator.serviceWorker.getRegistrations().then(function (rs) {
-      rs.forEach(function (r) { r.unregister(); });
-    }).catch(function () {});
-  }
+  window.__swCleared = (async function () {
+    if (!navigator.serviceWorker || !navigator.serviceWorker.getRegistrations) return;
+    try {
+      var currentScope = new URL('./', document.baseURI).href;
+      var rs = await navigator.serviceWorker.getRegistrations();
+      var unregistered = await Promise.all(rs.filter(function (registration) {
+        return registration.scope === currentScope;
+      }).map(function (registration) {
+        return registration.unregister();
+      }));
+      if (unregistered.some(function (didUnregister) { return didUnregister; }) &&
+          navigator.serviceWorker.controller) {
+        window.location.reload();
+        // 새 문서가 초기화를 이어받으므로 이전 문서에서는 더 진행하지 않는다.
+        await new Promise(function () {});
+      }
+    } catch (e) {}
+  })();
 </script>
 <script src="./ort.wasm.min.js"></script>
 <script>
   /* 실행 엔진 wasm(12.9MB)은 GitHub 업로드 한도를 넘지 않도록 조각으로 나눠 두었다.
-     조각을 받아 이어붙인 뒤 blob 주소로 만들어 ORT 에 직접 건네준다.
-     조각이 없으면 통짜 파일을 쓰도록 자동 폴백한다. */
+     조각을 받아 이어붙인 뒤 blob 주소로 만들어 ORT 에 직접 건네준다. */
+  function httpServerHint(){
+    return '저장소 루트에서 python3 -m http.server 8765를 실행하고 http://localhost:8765/prototype.html을 열어주세요 (HTTP 서버 필요).';
+  }
+  function aiEngineNotice(){
+    var direct = location.protocol === 'file:' || location.protocol === 'data:';
+    return (direct ? '파일을 직접 열어서 스크립트를 불러오지 못했습니다. ' : '') +
+      'AI 엔진이 로드되지 않았습니다. 표시되는 값은 샘플/데모 데이터이며 실제 인식 결과가 아닙니다. ' +
+      httpServerHint();
+  }
   window.__ortReady = (async function () {
-    if (typeof ort === 'undefined') return;
-    var here = new URL('./', document.baseURI).href;
-    ort.env.wasm.simd = true;
-    ort.env.wasm.numThreads = 1;
-    ort.env.proxy = false;
-    ort.env.logLevel = 'error';
-    var paths = { mjs: here + 'ort-wasm-simd-threaded.mjs' };
+    await window.__swCleared;
+    async function readResource(url, method){
+      var stage = 'fetch';
+      try {
+        var r = await fetch(url);
+        stage = 'http status';
+        if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + r.statusText);
+        stage = method;
+        return await r[method]();
+      } catch (e) {
+        var error = new Error(url + ' [' + stage + '] ' + e.name + ': ' + e.message);
+        error.cause = e;
+        console.error('WASM 리소스 로드 실패', { url:url, stage:stage, cause:e });
+        throw error;
+      }
+    }
     try {
-      var info = await (await fetch(here + 'model_parts.json')).json();
+      if (location.protocol === 'file:' || location.protocol === 'data:') {
+        throw new Error('페이지가 ' + location.protocol + ' 주소로 열려 실행 엔진 파일을 받아올 수 없습니다. ' + httpServerHint());
+      }
+      if (typeof ort === 'undefined') return;
+      var here = new URL('./', document.baseURI).href;
+      ort.env.wasm.simd = true;
+      ort.env.wasm.numThreads = 1;
+      ort.env.wasm.proxy = false;
+      ort.env.logLevel = 'error';
+      var paths = { mjs: here + 'ort-wasm-simd-threaded.mjs' };
+      var info = await readResource(here + 'model_parts.json', 'json');
       var spec = info.wasm;
       if (!spec) throw new Error('조각 정보 없음');
       var buf = new Uint8Array(spec.bytes), off = 0;
       for (var i = 0; i < spec.parts; i++) {
-        var r = await fetch(here + spec.file + '.part' + i);
-        if (!r.ok) throw new Error('wasm 조각 ' + i);
-        var ab = await r.arrayBuffer();
+        var ab = await readResource(here + spec.file + '.part' + i, 'arrayBuffer');
         buf.set(new Uint8Array(ab), off); off += ab.byteLength;
       }
       if (off !== spec.bytes) throw new Error('wasm 크기 불일치');
       paths.wasm = URL.createObjectURL(new Blob([buf], { type: 'application/wasm' }));
     } catch (e) {
-      paths.wasm = here + 'ort-wasm-simd-threaded.wasm';
+      window.__ortLoadError = new Error('AI 실행 엔진(WASM) 조각을 조립하지 못했습니다: ' +
+        (e && e.message ? e.message : '원인을 확인할 수 없습니다'));
+      window.__ortLoadError.cause = e;
+      console.error(window.__ortLoadError);
+      throw window.__ortLoadError;
     }
     ort.env.wasm.wasmPaths = paths;
   })();
+  window.__ortReady.catch(function () {});
 </script>
 <script src="./pocaai.js"></script>
 </head>
@@ -536,7 +579,7 @@
       <div class="eyebrow">POCA BINDER · AI FIRST</div>
       <h1>사진 한 장이면,<br><span class="grad">AI가 포카를 알아봐요</span></h1>
       <p class="sub">아티스트 선택도, 멤버 선택도, 태그 입력도 필요 없어요.<br>
-      업로드하면 AI가 아티스트 · 멤버 · 앨범 · 유형까지 2초 만에 분석합니다.</p>
+      업로드하면 AI가 아티스트 · 멤버를 바로 알아봅니다. 앨범 · 유형은 DB 연동 후 지원 예정입니다.</p>
       <div style="display:flex;gap:10px;margin-top:26px;">
         <button class="btn btn-primary" onclick="go('scan')">📸 AI 스캔 시작하기</button>
         <button class="btn btn-ghost" onclick="go('admin')">관리자 검수 화면 보기</button>
@@ -593,6 +636,7 @@
     <div class="dz-title">여기에 포카 사진을 드롭하세요</div>
     <div class="dz-sub">JPG · PNG · WEBP 지원 &nbsp;|&nbsp; 최대 10MB<br>클릭해서 파일 선택하기</div>
   </div>
+  <div class="dz-err" id="demo-notice" role="status"></div>
   <div class="dz-err" id="dz-err"></div>
   <div class="dz-alt"><button type="button" onclick="useSample()">사진 없이 샘플 포카로 둘러보기 →</button></div>
 
@@ -633,8 +677,8 @@
     <div class="steps" id="steps">
       <div class="step" data-step="0"><div class="ic">👁️</div><div><div class="tt">Vision AI 이미지 인식</div><div class="dd">아티스트 · 멤버 얼굴 인식</div></div><div class="st">대기</div></div>
       <div class="step" data-step="1"><div class="ic">🔤</div><div><div class="tt">OCR 텍스트 추출</div><div class="dd">앨범명 · 버전 텍스트 판독</div></div><div class="st">대기</div></div>
-      <div class="step" data-step="2"><div class="ic">🔍</div><div><div class="tt">중복 검색</div><div class="dd">DB 52,119장과 유사도 비교</div></div><div class="st">대기</div></div>
-      <div class="step" data-step="3"><div class="ic">🧪</div><div><div class="tt">품질 검사</div><div class="dd">해상도 · 흔들림 · 반사광 체크</div></div><div class="st">대기</div></div>
+      <div class="step" data-step="2"><div class="ic">🔍</div><div><div class="tt">중복 검색</div><div class="dd">카드 DB 연동 후 지원</div></div><div class="st">대기</div></div>
+      <div class="step" data-step="3"><div class="ic">🧪</div><div><div class="tt">품질 검사</div><div class="dd">선명도 · 밝기 · 얼굴 크기 체크</div></div><div class="st">대기</div></div>
       <div class="step" data-step="4"><div class="ic">🏷️</div><div><div class="tt">AI 메타데이터 생성</div><div class="dd">앨범 · 유형 · 버전 자동 태깅</div></div><div class="st">대기</div></div>
       <div class="step" data-step="5"><div class="ic">📊</div><div><div class="tt">신뢰도 계산</div><div class="dd">자동승인 / 검수 / 반려 분류</div></div><div class="st">대기</div></div>
     </div>
@@ -643,6 +687,7 @@
 
 <!-- ======================= 4. RESULT ======================= -->
 <section class="screen" id="scr-result">
+  <div class="dz-err" id="demo-result" role="status"></div>
   <div class="eyebrow">STEP 2 · AI 분석 결과</div>
   <h1>✔ 분석 완료! <span class="grad">확인만 해주세요</span></h1>
   <p class="sub">AI가 채워 넣은 정보입니다. 틀린 부분이 있으면 <b>수정</b>을, 맞으면 바로 <b>제출</b>을 눌러주세요.</p>
@@ -1234,6 +1279,7 @@
 
   function handleFile(file){
     dzErr('');
+    if(!AI.enabled) showDemoNotice();
     if(!file) return;
     if(!/^image\//.test(file.type)){
       dzErr('이미지 파일만 올릴 수 있어요. (JPG · PNG · WEBP)'); return;
@@ -1246,7 +1292,7 @@
       applyPhoto(ev.target.result, file.name);
       snapshotSampleFields();
       if(AI.enabled) runRealAnalysis(ev.target.result, file.name);
-      else startAnalyze();   // 엔진 없이 열린 경우(파일 직접 열기 등)는 기존 데모 흐름
+      else startAnalyze();   // 엔진 미로드 안내와 샘플 배너를 표시하는 데모 흐름
     };
     rd.onerror = function(){ dzErr('사진을 읽지 못했습니다. 다른 파일로 시도해 주세요.'); };
     rd.readAsDataURL(file);
@@ -1294,6 +1340,19 @@
   /* ============ 실제 AI 엔진 연동 ============ */
   var AI = { ready:false, loading:false, lastResult:null, enabled:(typeof PocaAI!=='undefined') };
 
+  function showDemoNotice(){
+    var el=document.getElementById('demo-notice');
+    if(el){ el.textContent=aiEngineNotice(); el.style.display='block'; }
+  }
+  function setDemoResult(demo){
+    var el=document.getElementById('demo-result');
+    if(!el) return;
+    el.textContent='데모 모드 · 샘플 데이터 · 실제 인식 결과 아님' +
+      (!AI.enabled ? ' — AI 엔진이 로드되지 않았습니다. '+httpServerHint() : '');
+    el.style.display=demo ? 'block' : 'none';
+  }
+  if(!AI.enabled) showDemoNotice();
+
   function aiStatus(msg, pct){
     var e=document.getElementById('dz-err');
     if(!e) return;
@@ -1315,7 +1374,7 @@
     AI.loading = true;
     try{
       if (window.__ortReady) { aiStatus('실행 엔진 준비 중', 0); await window.__ortReady; }
-      aiStatus('AI 모델을 처음 한 번만 내려받습니다 — 약 46MB', 0);
+      aiStatus('AI 모델을 처음 한 번만 내려받습니다 — 약 65MB', 0);
       await PocaAI.load({ baseUrl:'./', onProgress:function(m,p){ aiStatus(m, p); } });
       AI.ready = true; aiStatusClear();
       return true;
@@ -1336,6 +1395,7 @@
 
   // 실제 인식 결과를 결과 화면에 반영
   function renderAIResult(r){
+    setDemoResult(false);
     AI.lastResult = r;
     var ring=document.getElementById('conf-ring'), title=document.getElementById('conf-title'),
         sub=document.getElementById('conf-sub'), pillQ=document.getElementById('pill-quality'),
@@ -1363,10 +1423,10 @@
     if(title) title.textContent='종합 신뢰도 '+conf+'% · '+label;
     if(sub){
       sub.textContent = r.decision==='auto'
-        ? '유사도 '+top.similarity.toFixed(3)+' — 자동 승인 기준(0.35)을 넘어 바로 등록됩니다'
+        ? '유사도 '+top.similarity.toFixed(3)+' — 자동 승인 기준('+PocaAI.config.simAuto.toFixed(2)+')과 1·2순위 격차 기준('+PocaAI.config.gapAuto.toFixed(2)+')을 충족해 바로 등록됩니다'
         : (r.decision==='review'
            ? '유사도 '+top.similarity.toFixed(3)+' — 확신이 낮아 관리자 검수로 넘어갑니다'
-           : '유사도 '+top.similarity.toFixed(3)+' — 기준(0.28) 미달로 반려됩니다');
+           : '유사도 '+top.similarity.toFixed(3)+' — 검수 기준('+PocaAI.config.simReview.toFixed(2)+') 미달로 반려됩니다');
     }
 
     setField('fd-artist', top.group||'미상', Math.min(99, conf+2));
@@ -1453,13 +1513,13 @@
     img.onload = async function(){
       try{
         mark(0,false);
-        var stageMap = { detect:0, embed:0, match:2, quality:3 };
         var r = await PocaAI.analyze(img, function(stage){
           if(stage==='detect'){ mark(0,false); }
-          else if(stage==='embed'){ mark(0,true); skip(1,'OCR 미탑재'); mark(2,false); }
-          else if(stage==='match'){ mark(2,true); mark(3,false); }
-          else if(stage==='quality'){ mark(3,true); skip(4,'DB 연동 필요'); mark(5,false); }
+          else if(stage==='embed'){ mark(0,false); skip(1,'OCR 미탑재'); }
+          else if(stage==='match'){ mark(0,false); skip(2, '카드 DB 연동 필요'); }
+          else if(stage==='quality'){ mark(0,true); mark(3,false); skip(4,'DB 연동 필요'); mark(5,false); }
         });
+        mark(3,true);
         mark(5,true);
         renderAIResult(r);
         setTimeout(function(){ go('result'); }, 350);
@@ -1473,12 +1533,23 @@
   }
 
   function startAnalyze(){
+    if(!AI.enabled) showDemoNotice();
+    setDemoResult(true);
     dzErr('');
     go('analyzing');
     var steps = document.querySelectorAll('#steps .step');
     steps.forEach(function(s){ s.classList.remove('doing','done'); s.querySelector('.st').textContent='대기'; });
+    var skipped = { 1:'OCR 미탑재', 2:'카드 DB 연동 필요', 4:'DB 연동 필요' };
     var delay = 0;
     steps.forEach(function(s, i){
+      if(skipped[i]){
+        analyzeTimers.push(setTimeout(function(){
+          s.classList.remove('doing'); s.classList.add('done');
+          s.querySelector('.st').textContent=skipped[i];
+        }, delay));
+        delay += 450;
+        return;
+      }
       analyzeTimers.push(setTimeout(function(){
         s.classList.add('doing');
         s.querySelector('.st').textContent='분석중…';
