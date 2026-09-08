@@ -487,7 +487,8 @@
       if (unregistered.some(function (didUnregister) { return didUnregister; }) &&
           navigator.serviceWorker.controller) {
         window.location.reload();
-        await new Promise(function (resolve) { setTimeout(resolve, 3000); });
+        // 새 문서가 초기화를 이어받으므로 이전 문서에서는 더 진행하지 않는다.
+        await new Promise(function () {});
       }
     } catch (e) {}
   })();
@@ -496,24 +497,49 @@
 <script>
   /* 실행 엔진 wasm(12.9MB)은 GitHub 업로드 한도를 넘지 않도록 조각으로 나눠 두었다.
      조각을 받아 이어붙인 뒤 blob 주소로 만들어 ORT 에 직접 건네준다. */
+  function httpServerHint(){
+    return '저장소 루트에서 python3 -m http.server 8765를 실행하고 http://localhost:8765/prototype.html을 열어주세요 (HTTP 서버 필요).';
+  }
+  function aiEngineNotice(){
+    var direct = location.protocol === 'file:' || location.protocol === 'data:';
+    return (direct ? '파일을 직접 열어서 스크립트를 불러오지 못했습니다. ' : '') +
+      'AI 엔진이 로드되지 않았습니다. 표시되는 값은 샘플/데모 데이터이며 실제 인식 결과가 아닙니다. ' +
+      httpServerHint();
+  }
   window.__ortReady = (async function () {
     await window.__swCleared;
-    if (typeof ort === 'undefined') return;
-    var here = new URL('./', document.baseURI).href;
-    ort.env.wasm.simd = true;
-    ort.env.wasm.numThreads = 1;
-    ort.env.wasm.proxy = false;
-    ort.env.logLevel = 'error';
-    var paths = { mjs: here + 'ort-wasm-simd-threaded.mjs' };
+    async function readResource(url, method){
+      var stage = 'fetch';
+      try {
+        var r = await fetch(url);
+        stage = 'http status';
+        if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + r.statusText);
+        stage = method;
+        return await r[method]();
+      } catch (e) {
+        var error = new Error(url + ' [' + stage + '] ' + e.name + ': ' + e.message);
+        error.cause = e;
+        console.error('WASM 리소스 로드 실패', { url:url, stage:stage, cause:e });
+        throw error;
+      }
+    }
     try {
-      var info = await (await fetch(here + 'model_parts.json')).json();
+      if (location.protocol === 'file:' || location.protocol === 'data:') {
+        throw new Error('페이지가 ' + location.protocol + ' 주소로 열려 실행 엔진 파일을 받아올 수 없습니다. ' + httpServerHint());
+      }
+      if (typeof ort === 'undefined') return;
+      var here = new URL('./', document.baseURI).href;
+      ort.env.wasm.simd = true;
+      ort.env.wasm.numThreads = 1;
+      ort.env.wasm.proxy = false;
+      ort.env.logLevel = 'error';
+      var paths = { mjs: here + 'ort-wasm-simd-threaded.mjs' };
+      var info = await readResource(here + 'model_parts.json', 'json');
       var spec = info.wasm;
       if (!spec) throw new Error('조각 정보 없음');
       var buf = new Uint8Array(spec.bytes), off = 0;
       for (var i = 0; i < spec.parts; i++) {
-        var r = await fetch(here + spec.file + '.part' + i);
-        if (!r.ok) throw new Error('wasm 조각 ' + i);
-        var ab = await r.arrayBuffer();
+        var ab = await readResource(here + spec.file + '.part' + i, 'arrayBuffer');
         buf.set(new Uint8Array(ab), off); off += ab.byteLength;
       }
       if (off !== spec.bytes) throw new Error('wasm 크기 불일치');
@@ -521,6 +547,8 @@
     } catch (e) {
       window.__ortLoadError = new Error('AI 실행 엔진(WASM) 조각을 조립하지 못했습니다: ' +
         (e && e.message ? e.message : '원인을 확인할 수 없습니다'));
+      window.__ortLoadError.cause = e;
+      console.error(window.__ortLoadError);
       throw window.__ortLoadError;
     }
     ort.env.wasm.wasmPaths = paths;
@@ -608,6 +636,7 @@
     <div class="dz-title">여기에 포카 사진을 드롭하세요</div>
     <div class="dz-sub">JPG · PNG · WEBP 지원 &nbsp;|&nbsp; 최대 10MB<br>클릭해서 파일 선택하기</div>
   </div>
+  <div class="dz-err" id="demo-notice" role="status"></div>
   <div class="dz-err" id="dz-err"></div>
   <div class="dz-alt"><button type="button" onclick="useSample()">사진 없이 샘플 포카로 둘러보기 →</button></div>
 
@@ -658,6 +687,7 @@
 
 <!-- ======================= 4. RESULT ======================= -->
 <section class="screen" id="scr-result">
+  <div class="dz-err" id="demo-result" role="status"></div>
   <div class="eyebrow">STEP 2 · AI 분석 결과</div>
   <h1>✔ 분석 완료! <span class="grad">확인만 해주세요</span></h1>
   <p class="sub">AI가 채워 넣은 정보입니다. 틀린 부분이 있으면 <b>수정</b>을, 맞으면 바로 <b>제출</b>을 눌러주세요.</p>
@@ -1249,6 +1279,7 @@
 
   function handleFile(file){
     dzErr('');
+    if(!AI.enabled) showDemoNotice();
     if(!file) return;
     if(!/^image\//.test(file.type)){
       dzErr('이미지 파일만 올릴 수 있어요. (JPG · PNG · WEBP)'); return;
@@ -1261,7 +1292,7 @@
       applyPhoto(ev.target.result, file.name);
       snapshotSampleFields();
       if(AI.enabled) runRealAnalysis(ev.target.result, file.name);
-      else startAnalyze();   // 엔진 없이 열린 경우(파일 직접 열기 등)는 기존 데모 흐름
+      else startAnalyze();   // 엔진 미로드 안내와 샘플 배너를 표시하는 데모 흐름
     };
     rd.onerror = function(){ dzErr('사진을 읽지 못했습니다. 다른 파일로 시도해 주세요.'); };
     rd.readAsDataURL(file);
@@ -1309,6 +1340,19 @@
   /* ============ 실제 AI 엔진 연동 ============ */
   var AI = { ready:false, loading:false, lastResult:null, enabled:(typeof PocaAI!=='undefined') };
 
+  function showDemoNotice(){
+    var el=document.getElementById('demo-notice');
+    if(el){ el.textContent=aiEngineNotice(); el.style.display='block'; }
+  }
+  function setDemoResult(demo){
+    var el=document.getElementById('demo-result');
+    if(!el) return;
+    el.textContent='데모 모드 · 샘플 데이터 · 실제 인식 결과 아님' +
+      (!AI.enabled ? ' — AI 엔진이 로드되지 않았습니다. '+httpServerHint() : '');
+    el.style.display=demo ? 'block' : 'none';
+  }
+  if(!AI.enabled) showDemoNotice();
+
   function aiStatus(msg, pct){
     var e=document.getElementById('dz-err');
     if(!e) return;
@@ -1351,6 +1395,7 @@
 
   // 실제 인식 결과를 결과 화면에 반영
   function renderAIResult(r){
+    setDemoResult(false);
     AI.lastResult = r;
     var ring=document.getElementById('conf-ring'), title=document.getElementById('conf-title'),
         sub=document.getElementById('conf-sub'), pillQ=document.getElementById('pill-quality'),
@@ -1488,6 +1533,8 @@
   }
 
   function startAnalyze(){
+    if(!AI.enabled) showDemoNotice();
+    setDemoResult(true);
     dzErr('');
     go('analyzing');
     var steps = document.querySelectorAll('#steps .step');

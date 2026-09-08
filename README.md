@@ -24,6 +24,10 @@ python3 -m http.server 8765
 
 `file://`로 파일을 직접 열면 모델과 인덱스를 가져오는 `fetch`가 동작하지 않으므로 반드시 HTTP 서버를 통해 실행해야 합니다.
 
+파일 직접 열기(`file://`)나 인앱 스냅샷에서 AI 엔진이 로드되지 않으면 **데모 모드**로 동작하며, 표시값은 실제 인식 결과가 아닌 샘플 데이터입니다.
+Claude 인앱 브라우저의 `.claude/launch.json`에는 실행 가능한 Python 경로(예: `/opt/homebrew/bin/python3`)를 지정해야 합니다.
+Xcode의 `/usr/bin/python3`는 미리보기 패널 안에서 `PermissionError`로 실패할 수 있습니다.
+
 최초 실제 분석 시 약 65MB를 내려받으므로 네트워크 상태를 확인하고, 최신 WebAssembly를 지원하는 브라우저 사용을 권장합니다.
 
 ## 배포 프로토타입 처리 파이프라인
